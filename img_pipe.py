@@ -668,6 +668,10 @@ class freeCoG:
         os.system(os.path.join(self.img_pipe_dir, 'SupplementalScripts', 'aseg2srf.sh') + ' -s "%s" -l "4 5 10 11 12 13 17 18 26 \
                  28 43 44  49 50 51 52 53 54 58 60 14 15 16" -d' % (self.subj))
 
+        print('::: Tesselating subfied bros :::')
+        os.system(os.path.join(self.img_pipe_dir, 'SupplementalScripts', 'aseg2srfSubf.sh') + ' -s "%s' % (self.subj))
+
+
         # get list of all .srf files and change fname to .asc
         srf_list = list(set([fname for fname in os.listdir(subjAscii_dir)]))
         asc_list = list(set([fname.replace('.srf', '.asc') for fname in srf_list]))
@@ -682,12 +686,21 @@ class freeCoG:
                         'aseg_043.asc', 'aseg_044.asc', 'aseg_060.asc', 'aseg_004.asc',
                         'aseg_005.asc', 'aseg_010.asc', 'aseg_011.asc', 'aseg_012.asc',
                         'aseg_013.asc', 'aseg_017.asc', 'aseg_018.asc', 'aseg_026.asc',
-                        'aseg_028.asc', 'aseg_014.asc', 'aseg_015.asc', 'aseg_016.asc']
+                        'aseg_028.asc', 'aseg_014.asc', 'aseg_015.asc', 'aseg_016.asc',
+                        'aseg_203.asc', 'aseg_211.asc', 'aseg_212.asc', 'aseg_215.asc',
+                        'aseg_226.asc', 'aseg_233.asc', 'aseg_234.asc', 'aseg_235.asc',
+                        'aseg_236.asc', 'aseg_237.asc', 'aseg_238.asc', 'aseg_239.asc',
+                        'aseg_240.asc', 'aseg_241.asc', 'aseg_242.asc', 'aseg_243.asc',
+                        'aseg_244.asc', 'aseg_245.asc', 'aseg_246.asc']
 
         nuc_list = ['rAcumb', 'rAmgd', 'rCaud', 'rGP', 'rHipp', 'rPut', 'rThal',
                     'rLatVent', 'rInfLatVent', 'rVentDienceph', 'lLatVent', 'lInfLatVent',
                     'lThal', 'lCaud', 'lPut',  'lGP', 'lHipp', 'lAmgd', 'lAcumb', 'lVentDienceph',
-                    'lThirdVent', 'lFourthVent', 'lBrainStem']
+                    'lThirdVent', 'lFourthVent', 'lBrainStem', 'parasubiculum', 'HATA', 'fimbria',
+                    'hippocampalFissure', 'HPtail', 'presubiculumHead', 'presubiculumBody', 
+                    'subiculumHead', 'subiculumBody', 'CA1head', 'CA1body', 'CA3head', 'CA3body',
+                    'CA4head', 'CA4body', 'GcMlDgHead', 'GcMlDgBody', 'molecularLayerHPhead', 
+                    'molecularLayerHPBody']
 
         subcort_dir = os.path.join(self.mesh_dir,'subcortical')     
         if not os.path.isdir(subcort_dir):      
