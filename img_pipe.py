@@ -1080,10 +1080,12 @@ class freeCoG:
             else:
                 depth_atlas_nm = '.a2009s'
 
-            aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'aparc%s+aseg.mgz'%(depth_atlas_nm))
+            # aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'aparc%s+aseg.mgz'%(depth_atlas_nm))
+            aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'rh.hippoAmygLabels-T1.v21.FSvoxelSpace.mgz')
             dat = nib.freesurfer.load(aseg_file)
             aparc_dat = dat.get_data()
              
+            print(aparc_dat.shape())
             # Define the affine transform to go from surface coordinates to volume coordinates (as CRS, which is
             # the slice *number* as x,y,z in the 3D volume. That is, if there are 256 x 256 x 256 voxels, the
             # CRS coordinate will go from 0 to 255.)
@@ -1120,9 +1122,15 @@ class freeCoG:
             # Label the electrodes according to the aseg volume
             nchans = VoxCRS.shape[0]
             anatomy = np.empty((nchans,), dtype=np.object)
-            print("Labeling electrodes...")
+            print("Labeling electrodes...asdf")
+        	# print(VoxCRS[elec,1])
+        	# print(VoxCRS[elec,2])
+
 
             for elec in np.arange(nchans):
+                print('elec0: ' + str(VoxCRS[elec,0]))
+                print('elec1: ' + str(VoxCRS[elec,1]))
+                print('elec2: ' + str(VoxCRS[elec,2]))
                 anatomy[elec] = lab[aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
                 print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
                                                                     aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
