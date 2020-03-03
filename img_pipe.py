@@ -286,6 +286,21 @@ class freeCoG:
         aparc_aseg = os.path.join(self.subj_dir, self.subj, 'mri', 'aparc.a2009s+aseg.mgz')
         os.system("freeview --volume %s:opacity=0.8 --volume %s:opacity=0.6 --volume %s:colormap=lut:opacity=0.5:visible=0 --viewport 'coronal'"%(brain_mri, elecs_CT, aparc_aseg))
         
+    
+    def get_subfields_T1(self):
+    	seg_T1 = os.path.join(self.fs_dir, 'bin','segmentHA_T1.sh')
+    	# print(self.subj)
+    	os.system("%s %s %s"%(seg_T1, self.subj, self.subj_dir))
+
+    def get_subfields_T2(self):
+    	seg_T2 = os.path.join(self.fs_dir, 'bin','segmentHA_T2.sh')
+
+    	scanT2 = os.path.join(self.subj_dir, self.subj, 'mri', 'T2.nii')
+
+    	os.system("%s %s %s T2 1 %s"%(seg_T2, self.subj, scanT2, self.subj_dir))
+
+
+
     def make_dural_surf(self, radius=3, num_iter=30, dilate=0.0):
         '''
         Create smoothed dural surface for projecting electrodes to.
@@ -930,7 +945,7 @@ class freeCoG:
 
         return vert_inds, nearest_verts
 
-    def label_elecs(self, elecfile_prefix='TDT_elecs_all', atlas_surf='desikan-killiany', atlas_depth='destrieux', elecs_all=True):
+    def label_elecs(self, elecfile_prefix='TDT_elecs_all', atlas_surf='desikan-killiany', atlas_depth='destrieux', elecs_all=True, include_subfields=False):
         ''' Automatically labels electrodes based on the freesurfer annotation file.
         Assumes TDT_elecs_all.mat or clinical_elecs_all.mat files
         Uses both the Desikan-Killiany Atlas and the Destrieux Atlas, as described 
@@ -1135,10 +1150,10 @@ class freeCoG:
             
 
 
-            includeSF = False
+            # includeSF = False
 
 
-            if(includeSF):
+            if(include_subfields):
 
                 print("Labeling electrodes including subfields...")
 
