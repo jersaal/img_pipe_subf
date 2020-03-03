@@ -1080,12 +1080,19 @@ class freeCoG:
             else:
                 depth_atlas_nm = '.a2009s'
 
-            # aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'aparc%s+aseg.mgz'%(depth_atlas_nm))
-            aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'rh.hippoAmygLabels-T1.v21.FSvoxelSpace.mgz')
+            aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'aparc%s+aseg.mgz'%(depth_atlas_nm))
             dat = nib.freesurfer.load(aseg_file)
             aparc_dat = dat.get_data()
              
-            print(aparc_dat.shape())
+            aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'lh.hippoAmygLabels-T1.v21.FSvoxelSpace.mgz')
+            dat = nib.freesurfer.load(aseg_file)
+            aparc_datLH = dat.get_data()
+            
+            aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'rh.hippoAmygLabels-T1.v21.FSvoxelSpace.mgz')
+            dat = nib.freesurfer.load(aseg_file)
+            aparc_datRH = dat.get_data()
+             
+
             # Define the affine transform to go from surface coordinates to volume coordinates (as CRS, which is
             # the slice *number* as x,y,z in the 3D volume. That is, if there are 256 x 256 x 256 voxels, the
             # CRS coordinate will go from 0 to 255.)
@@ -1122,29 +1129,99 @@ class freeCoG:
             # Label the electrodes according to the aseg volume
             nchans = VoxCRS.shape[0]
             anatomy = np.empty((nchans,), dtype=np.object)
-            print("Labeling electrodes...asdf")
-        	# print(VoxCRS[elec,1])
-        	# print(VoxCRS[elec,2])
+            anatomyRH = np.empty((nchans,), dtype=np.object)
+            anatomyLH = np.empty((nchans,), dtype=np.object)
+            anatomySF = np.empty((nchans,), dtype=np.object)
+            
 
 
-            for elec in np.arange(nchans):
-                print('elec0: ' + str(VoxCRS[elec,0]))
-                print('elec1: ' + str(VoxCRS[elec,1]))
-                print('elec2: ' + str(VoxCRS[elec,2]))
-                anatomy[elec] = lab[aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
-                print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
+            includeSF = False
+
+
+            if(includeSF):
+
+                print("Labeling electrodes including subfields...")
+
+                for elec in np.arange(nchans):
+                    if(lab[aparc_datRH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]] != 'Unknown'):
+                        anatomy[elec] = 'Right-' + lab[aparc_datRH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                    elif(lab[aparc_datLH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]] != 'Unknown'):
+                        anatomy[elec] = 'Left-' + lab[aparc_datLH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                    else:
+                        anatomy[elec] = lab[aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                    print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
                                                                     aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
                                                                     anatomy[elec]))
+      
+            else:
+            	print("Labeling electrodes without subfields...")
+                for elec in np.arange(nchans):
+                    anatomy[elec] = lab[aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                    print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
+                                                                aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
+                                                                anatomy[elec]))
+
+         
 
             elec_labels[np.invert(isnotdepth),3] = anatomy
-            
+
+            # print('Labeling electrodes using subfield parc...')
+
+            # for elec in np.arange(nchans):
+                # RHtemp =  lab[aparc_datRH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                # LHtemp = lab[aparc_datLH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                # if(RHtemp != 'Unknown'):
+                    # anatomySF[elec] = 'right-' + RHtemp
+                # elif(LHtemp != 'Unknown'):
+                    # anatomySF[elec] = 'left-' + LHtemp
+                # else:
+                    # anatomySF[elec] = 'Unknown'
+                # print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
+                                                                    # aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
+                                                                    # anatomySF[elec]))
+            # elec_labelsSF[np.invert(isnotdepth),3] = anatomy
+
+
+
+            # print("anatomy rhasdf:")
+            # print(aparc_datRH[100, 147, 119])
+            # print(aparc_datRH[1, 147, 119])
+
+            # print('Labeling electrodes using LH subfield parc...')
+# 
+            # for elec in np.arange(nchans):
+                # anatomyLH[elec] = 'left-' + lab[aparc_datLH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                # print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
+                                                                    # aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
+                                                                    # anatomyLH[elec]))
+
+            #combine left and right subfields
+
+
+
+        # elec_lables_origSF = elec_labels_orig
+
             #make some corrections b/c of NaNs in elecmatrix
+        # print('b4')
+        # print(elec_labels_orig)
         elec_labels_orig[:,3] = ''
         elec_labels_orig[indices_to_use,3] = elec_labels[:,3] 
+        # print('after')
+        # print(elec_labels_orig)
+
+        # elec_labels_origSF[:,3] = ''
+        # elec_labels_origSF[indices_to_use,3] = elec_labels 
+
+
+        # elec_labels_orig[:,3] = ''
+        # elec_labels_orig[indices_to_use,3] = elec_labels[:,3] 
+
+
         
         print('Saving electrode labels to %s'%(elecfile_prefix))
         scipy.io.savemat(os.path.join(self.elecs_dir, elecfile_prefix+'.mat'), {'elecmatrix': elecmatrix_orig, 
-                                                                                'anatomy': elec_labels_orig, 
+                                                                                'anatomy': elec_labels_orig,
+                                                                                # 'anatomySF': , 
                                                                                 'eleclabels': elecmontage})
 
         return elec_labels
