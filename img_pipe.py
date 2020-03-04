@@ -293,14 +293,14 @@ class freeCoG:
         
     
     def get_subfields(self):
-    	''' Runs bash scripts to segment hippocampal & amygdala subfields using T1, T2, or both 
+        ''' Runs bash scripts to segment hippocampal & amygdala subfields using T1, T2, or both
     	'''
-        if(self.subfield_scan=='None'):
+        if self.subfield_scan=='None':
             raise NameError('subfield scan not set during freeCoG initialization')
-        elif(self.subfield_scan=='T1'):
+        elif self.subfield_scan=='T1':
             seg_T1 = os.path.join(self.fs_dir, 'bin','segmentHA_T1.sh')
             os.system("%s %s %s"%(seg_T1, self.subj, self.subj_dir))
-        elif(self.subfield_scan=='T1-T2'):
+        elif self.subfield_scan=='T1-T2':
             seg_T2 = os.path.join(self.fs_dir, 'bin','segmentHA_T2.sh')
             scanT2 = os.path.join(self.subj_dir, self.subj, 'mri', 'T2.nii')
             os.system("%s %s %s T2 1 %s"%(seg_T2, self.subj, scanT2, self.subj_dir))
@@ -693,7 +693,7 @@ class freeCoG:
                  28 43 44  49 50 51 52 53 54 58 60 14 15 16" -d' % (self.subj))
 
         #if we are using subfields, perform tesselation
-        if(self.subfield_scan!='None'):
+        if self.subfield_scan!='None':
             print('::: Tesselating subfied segmentations :::')
             os.system(os.path.join(self.img_pipe_dir, 'SupplementalScripts', 'aseg2srfSubf.sh') + ' -s "%s" -f "%s" ' % (self.subj, self.subfield_scan))
 
@@ -707,7 +707,7 @@ class freeCoG:
             os.system('mv %s %s'%(os.path.join(subjAscii_dir,fname), os.path.join(subjAscii_dir,new_fname)))
         
         #if we are using subfields, expand dictionary
-        if(self.subfield_scan != 'None'):
+        if self.subfield_scan != 'None':
             # convert all ascii subcortical meshes to matlab vert, tri coords
             subcort_list = ['aseg_058.asc', 'aseg_054.asc', 'aseg_050.asc',
                             'aseg_052.asc', 'aseg_053.asc', 'aseg_051.asc', 'aseg_049.asc',
@@ -1135,9 +1135,6 @@ class freeCoG:
             dat = nib.freesurfer.load(aseg_file)
             aparc_dat = dat.get_data()
              
-  
-             
-
             # Define the affine transform to go from surface coordinates to volume coordinates (as CRS, which is
             # the slice *number* as x,y,z in the 3D volume. That is, if there are 256 x 256 x 256 voxels, the
             # CRS coordinate will go from 0 to 255.)
@@ -1178,7 +1175,6 @@ class freeCoG:
             anatomyLH = np.empty((nchans,), dtype=np.object)
             anatomySF = np.empty((nchans,), dtype=np.object)
             
-
             #If we are including subfields...
             if(self.subfield_scan != 'None'):
 
@@ -1186,17 +1182,17 @@ class freeCoG:
 
                 aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'lh.hippoAmygLabels-' + self.subfield_scan + '.v21.FSvoxelSpace.mgz')
                 dat = nib.freesurfer.load(aseg_file)
-                aparc_datLH = dat.get_data()
+                aparc_dat_lh = dat.get_data()
             
                 aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'rh.hippoAmygLabels-' + self.subfield_scan + '.v21.FSvoxelSpace.mgz')
                 dat = nib.freesurfer.load(aseg_file)
-                aparc_datRH = dat.get_data()
+                aparc_dat_rh = dat.get_data()
 
                 for elec in np.arange(nchans):
-                    if(lab[aparc_datRH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]] != 'Unknown'):
-                        anatomy[elec] = 'Right-' + lab[aparc_datRH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
-                    elif(lab[aparc_datLH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]] != 'Unknown'):
-                        anatomy[elec] = 'Left-' + lab[aparc_datLH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                    if(lab[aparc_dat_rh[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]] != 'Unknown'):
+                        anatomy[elec] = 'Right-' + lab[aparc_dat_rh[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
+                    elif(lab[aparc_dat_lh[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]] != 'Unknown'):
+                        anatomy[elec] = 'Left-' + lab[aparc_dat_lh[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
                     else:
                         anatomy[elec] = lab[aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
                     print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
@@ -1210,13 +1206,9 @@ class freeCoG:
                     print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
                                                                 aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
                                                                 anatomy[elec]))
-
-         
-
             elec_labels[np.invert(isnotdepth),3] = anatomy
 
-
-            #make some corrections b/c of NaNs in elecmatrix
+        #make some corrections b/c of NaNs in elecmatrix
         elec_labels_orig[:,3] = ''
         elec_labels_orig[indices_to_use,3] = elec_labels[:,3] 
         
