@@ -18,6 +18,8 @@ Options:
             e.g. "10 11 14 52 253", or a text file
             containing one label per line, or ignore
             this option to convert all labels.
+-f <str> : Specify which scan to use. "T1", "T2",
+            "T3"
 -d          Debug mode. Leave all temporary files.
 
 Requirements:
@@ -33,17 +35,20 @@ EOU
 exit
 fi
 
+
+
 # List of labels to be converted if no list is specified
 LABLIST="203 211 212 215 226 233 234 235 236 237 238 239 240 241 242 243 244 245 246"
 
 # Check and accept arguments
 SBJLIST=""
 DEBUG=N
-while getopts 's:l:d' OPTION
+while getopts 's:l:f:d' OPTION
 do
   case ${OPTION} in
     s) SBJLIST=$( [[ -f ${OPTARG} ]] && cat ${OPTARG} || echo "${OPTARG}" ) ;;
     l) LABLIST=$( [[ -f ${OPTARG} ]] && cat ${OPTARG} || echo "${OPTARG}" ) ;;
+    f) SCAN=$OPTARG ;;
     d) DEBUG=Y ;;
   esac
 done
@@ -67,53 +72,58 @@ bashtrap()
 
 # For each subject
 for s in ${SBJLIST} ; do
+  #for each hemisphere
+  for hem in 'lh' 'rh'
+  do
 
-  # Create directories for temp files and results
-  mkdir -p ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}
-  mkdir -p ${SUBJECTS_DIR}/${s}/ascii
+    # Create directories for temp files and results
+    mkdir -p ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}
+    mkdir -p ${SUBJECTS_DIR}/${s}/ascii
 
-  # For each label
-  for lab in ${LABLIST} ; do
+    # For each label
+    for lab in ${LABLIST} ; do
 
-    # Label string
-    lab0=$(printf %03d ${lab})
+      # Label string
+      lab0=$(printf %03d ${lab})
 
-    # Pre-tessellate
-    echo "==> Pre-tessellating: ${s}, ${lab0}"
-    ${FREESURFER_HOME}/bin/mri_pretess \
-           ${SUBJECTS_DIR}/${s}/mri/lh.hippoAmygLabels-T1.v21.FSvoxelSpace.mgz ${lab} \
-           ${SUBJECTS_DIR}/${s}/mri/norm.mgz \
-           ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}_filled.mgz
+      # Pre-tessellate
+      echo "==> Pre-tessellating: ${s}, ${lab0}"
+      ${FREESURFER_HOME}/bin/mri_pretess \
+             ${SUBJECTS_DIR}/${s}/mri/$hem.hippoAmygLabels-$SCAN.v21.FSvoxelSpace.mgz ${lab} \
+             ${SUBJECTS_DIR}/${s}/mri/norm.mgz \
+             ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}_filled.mgz
 
-    # Tessellate
-    echo "==> Tessellating: ${s}, ${lab0}"
-    ${FREESURFER_HOME}/bin/mri_tessellate \
-           ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}_filled.mgz \
-           ${lab} ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}_notsmooth
+      # Tessellate
+      echo "==> Tessellating: ${s}, ${lab0}"
+      ${FREESURFER_HOME}/bin/mri_tessellate \
+             ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}_filled.mgz \
+             ${lab} ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}_notsmooth
 
-    # Smooth
-    echo "==> Smoothing: ${s}, ${lab0}"
-    ${FREESURFER_HOME}/bin/mris_smooth -nw \
-           ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}_notsmooth \
-           ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}
+      # Smooth
+      echo "==> Smoothing: ${s}, ${lab0}"
+      ${FREESURFER_HOME}/bin/mris_smooth -nw \
+             ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}_notsmooth \
+             ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}
 
-    # Convert to ASCII
-    echo "==> Converting to ASCII: ${s}, ${lab0}"
-    ${FREESURFER_HOME}/bin/mris_convert \
-           ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0} \
-           ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}.asc
-    mv ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}.asc \
-       ${SUBJECTS_DIR}/${s}/ascii/aseg_${lab0}.srf
+      # Convert to ASCII
+      echo "==> Converting to ASCII: ${s}, ${lab0}"
+      ${FREESURFER_HOME}/bin/mris_convert \
+             ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0} \
+             ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}.asc
+      mv ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}/aseg_${lab0}.asc \
+         ${SUBJECTS_DIR}/${s}/ascii/aseg_${lab0}$hem.srf
+       
+    done
+
+    # Get rid of temp files
+    if [ "${DEBUG}" == "Y" ] ; then
+      echo "==> Temporary files for ${s} saved at:"
+      echo "${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}"
+    else
+      echo "==> Removing temporary files for ${s}"
+      rm -rf ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}
+    fi
+    echo "==> Done: ${s}"
   done
-
-  # Get rid of temp files
-  if [ "${DEBUG}" == "Y" ] ; then
-    echo "==> Temporary files for ${s} saved at:"
-    echo "${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}"
-  else
-    echo "==> Removing temporary files for ${s}"
-    rm -rf ${SUBJECTS_DIR}/${s}/tmp/${RNDSTR}
-  fi
-  echo "==> Done: ${s}"
 done
 exit 0

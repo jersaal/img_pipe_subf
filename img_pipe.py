@@ -120,7 +120,7 @@ class freeCoG:
 
     '''
 
-    def __init__(self, subj, hem, zero_indexed_electrodes=True, fs_dir=os.environ['FREESURFER_HOME'], subj_dir=os.environ['SUBJECTS_DIR']):
+    def __init__(self, subj, hem, zero_indexed_electrodes=True, subfield_scan = 'None', fs_dir=os.environ['FREESURFER_HOME'], subj_dir=os.environ['SUBJECTS_DIR']):
         '''
         Initializes the patient object.
 
@@ -146,6 +146,9 @@ class freeCoG:
         # Check if hem is valid
         if not hem in ['rh', 'lh', 'stereo']:
             raise NameError('Invalid hem for freeCoG')
+
+        if not subfield_scan in ['None', 'T1', 'T2', 'T1-T2']:
+            raise NameError('Invalid subfield_scan for freeCoG')
         
         self.subj = subj
         self.subj_dir = subj_dir
@@ -153,6 +156,8 @@ class freeCoG:
         self.hem = hem
         self.img_pipe_dir = os.path.dirname(os.path.realpath(__file__))
         self.zero_indexed_electrodes = zero_indexed_electrodes
+
+        self.subfield_scan = subfield_scan
 
         # Freesurfer home directory
         self.fs_dir = fs_dir
@@ -287,18 +292,22 @@ class freeCoG:
         os.system("freeview --volume %s:opacity=0.8 --volume %s:opacity=0.6 --volume %s:colormap=lut:opacity=0.5:visible=0 --viewport 'coronal'"%(brain_mri, elecs_CT, aparc_aseg))
         
     
-    def get_subfields_T1(self):
-    	seg_T1 = os.path.join(self.fs_dir, 'bin','segmentHA_T1.sh')
-    	# print(self.subj)
-    	os.system("%s %s %s"%(seg_T1, self.subj, self.subj_dir))
-
-    def get_subfields_T2(self):
-    	seg_T2 = os.path.join(self.fs_dir, 'bin','segmentHA_T2.sh')
-
-    	scanT2 = os.path.join(self.subj_dir, self.subj, 'mri', 'T2.nii')
-
-    	os.system("%s %s %s T2 1 %s"%(seg_T2, self.subj, scanT2, self.subj_dir))
-
+    def get_subfields(self):
+    	''' Runs bash scripts to segment hippocampal & amygdala subfields using T1, T2, or both 
+    	'''
+        if(self.subfield_scan=='None'):
+            raise NameError('subfield scan not set during freeCoG initialization')
+        elif(self.subfield_scan=='T1'):
+            seg_T1 = os.path.join(self.fs_dir, 'bin','segmentHA_T1.sh')
+            os.system("%s %s %s"%(seg_T1, self.subj, self.subj_dir))
+        elif(self.subfield_scan=='T1-T2'):
+            seg_T2 = os.path.join(self.fs_dir, 'bin','segmentHA_T2.sh')
+            scanT2 = os.path.join(self.subj_dir, self.subj, 'mri', 'T2.nii')
+            os.system("%s %s %s T2 1 %s"%(seg_T2, self.subj, scanT2, self.subj_dir))
+        else:
+            seg_T2 = os.path.join(self.fs_dir, 'bin','segmentHA_T2.sh')
+            scanT2 = os.path.join(self.subj_dir, self.subj, 'mri', 'T2.nii')
+            os.system("%s %s %s T2 0 %s"%(seg_T2, self.subj, scanT2, self.subj_dir))
 
 
     def make_dural_surf(self, radius=3, num_iter=30, dilate=0.0):
@@ -683,8 +692,10 @@ class freeCoG:
         os.system(os.path.join(self.img_pipe_dir, 'SupplementalScripts', 'aseg2srf.sh') + ' -s "%s" -l "4 5 10 11 12 13 17 18 26 \
                  28 43 44  49 50 51 52 53 54 58 60 14 15 16" -d' % (self.subj))
 
-        print('::: Tesselating subfied bros :::')
-        os.system(os.path.join(self.img_pipe_dir, 'SupplementalScripts', 'aseg2srfSubf.sh') + ' -s "%s' % (self.subj))
+        #if we are using subfields, perform tesselation
+        if(self.subfield_scan!='None'):
+            print('::: Tesselating subfied segmentations :::')
+            os.system(os.path.join(self.img_pipe_dir, 'SupplementalScripts', 'aseg2srfSubf.sh') + ' -s "%s" -f "%s" ' % (self.subj, self.subfield_scan))
 
 
         # get list of all .srf files and change fname to .asc
@@ -694,28 +705,53 @@ class freeCoG:
         for fname in srf_list:
             new_fname = fname.replace('.srf', '.asc')
             os.system('mv %s %s'%(os.path.join(subjAscii_dir,fname), os.path.join(subjAscii_dir,new_fname)))
+        
+        #if we are using subfields, expand dictionary
+        if(self.subfield_scan != 'None'):
+            # convert all ascii subcortical meshes to matlab vert, tri coords
+            subcort_list = ['aseg_058.asc', 'aseg_054.asc', 'aseg_050.asc',
+                            'aseg_052.asc', 'aseg_053.asc', 'aseg_051.asc', 'aseg_049.asc',
+                            'aseg_043.asc', 'aseg_044.asc', 'aseg_060.asc', 'aseg_004.asc',
+                            'aseg_005.asc', 'aseg_010.asc', 'aseg_011.asc', 'aseg_012.asc',
+                            'aseg_013.asc', 'aseg_017.asc', 'aseg_018.asc', 'aseg_026.asc',
+                            'aseg_028.asc', 'aseg_014.asc', 'aseg_015.asc', 'aseg_016.asc',
+                            'aseg_203lh.asc', 'aseg_211lh.asc', 'aseg_212lh.asc', 'aseg_215lh.asc',
+                            'aseg_226lh.asc', 'aseg_233lh.asc', 'aseg_234lh.asc', 'aseg_235lh.asc',
+                            'aseg_236lh.asc', 'aseg_237lh.asc', 'aseg_238lh.asc', 'aseg_239lh.asc',
+                            'aseg_240lh.asc', 'aseg_241lh.asc', 'aseg_242lh.asc', 'aseg_243lh.asc',
+                            'aseg_244lh.asc', 'aseg_245lh.asc', 'aseg_246lh.asc',
+                            'aseg_203rh.asc', 'aseg_211rh.asc', 'aseg_212rh.asc', 'aseg_215rh.asc',
+                            'aseg_226rh.asc', 'aseg_233rh.asc', 'aseg_234rh.asc', 'aseg_235rh.asc',
+                            'aseg_236rh.asc', 'aseg_237rh.asc', 'aseg_238rh.asc', 'aseg_239rh.asc',
+                            'aseg_240rh.asc', 'aseg_241rh.asc', 'aseg_242rh.asc', 'aseg_243rh.asc',
+                            'aseg_244rh.asc', 'aseg_245rh.asc', 'aseg_246rh.asc']
 
-        # convert all ascii subcortical meshes to matlab vert, tri coords
-        subcort_list = ['aseg_058.asc', 'aseg_054.asc', 'aseg_050.asc',
-                        'aseg_052.asc', 'aseg_053.asc', 'aseg_051.asc', 'aseg_049.asc',
-                        'aseg_043.asc', 'aseg_044.asc', 'aseg_060.asc', 'aseg_004.asc',
-                        'aseg_005.asc', 'aseg_010.asc', 'aseg_011.asc', 'aseg_012.asc',
-                        'aseg_013.asc', 'aseg_017.asc', 'aseg_018.asc', 'aseg_026.asc',
-                        'aseg_028.asc', 'aseg_014.asc', 'aseg_015.asc', 'aseg_016.asc',
-                        'aseg_203.asc', 'aseg_211.asc', 'aseg_212.asc', 'aseg_215.asc',
-                        'aseg_226.asc', 'aseg_233.asc', 'aseg_234.asc', 'aseg_235.asc',
-                        'aseg_236.asc', 'aseg_237.asc', 'aseg_238.asc', 'aseg_239.asc',
-                        'aseg_240.asc', 'aseg_241.asc', 'aseg_242.asc', 'aseg_243.asc',
-                        'aseg_244.asc', 'aseg_245.asc', 'aseg_246.asc']
 
-        nuc_list = ['rAcumb', 'rAmgd', 'rCaud', 'rGP', 'rHipp', 'rPut', 'rThal',
-                    'rLatVent', 'rInfLatVent', 'rVentDienceph', 'lLatVent', 'lInfLatVent',
-                    'lThal', 'lCaud', 'lPut',  'lGP', 'lHipp', 'lAmgd', 'lAcumb', 'lVentDienceph',
-                    'lThirdVent', 'lFourthVent', 'lBrainStem', 'parasubiculum', 'HATA', 'fimbria',
-                    'hippocampalFissure', 'HPtail', 'presubiculumHead', 'presubiculumBody', 
-                    'subiculumHead', 'subiculumBody', 'CA1head', 'CA1body', 'CA3head', 'CA3body',
-                    'CA4head', 'CA4body', 'GcMlDgHead', 'GcMlDgBody', 'molecularLayerHPhead', 
-                    'molecularLayerHPBody']
+            nuc_list = ['rAcumb', 'rAmgd', 'rCaud', 'rGP', 'rHipp', 'rPut', 'rThal',
+                        'rLatVent', 'rInfLatVent', 'rVentDienceph', 'lLatVent', 'lInfLatVent',
+                        'lThal', 'lCaud', 'lPut',  'lGP', 'lHipp', 'lAmgd', 'lAcumb', 'lVentDienceph',
+                        'lThirdVent', 'lFourthVent', 'lBrainStem', 'lParasubiculum', 'lHATA', 'lFimbria',
+                        'lHippocampalFissure', 'lHPtail', 'lPresubiculumHead', 'lPresubiculumBody', 
+                        'lSubiculumHead', 'lSubiculumBody', 'lCA1head', 'lCA1body', 'lCA3head', 'lCA3body',
+                        'lCA4head', 'lCA4body', 'lGcMlDgHead', 'lGcMlDgBody', 'lMolecularLayerHPhead', 
+                        'lMolecularLayerHPBody','rParasubiculum', 'rHATA', 'rFimbria',
+                        'rHippocampalFissure', 'rHPtail', 'rPresubiculumHead', 'rPresubiculumBody', 
+                        'rSubiculumHead', 'rSubiculumBody', 'rCA1head', 'rCA1body', 'rCA3head', 'rCA3body',
+                        'rCA4head', 'rCA4body', 'rGcMlDgHead', 'rGcMlDgBody', 'rMolecularLayerHPhead', 
+                        'rMolecularLayerHPBody']
+        else:
+            subcort_list = ['aseg_058.asc', 'aseg_054.asc', 'aseg_050.asc',
+                            'aseg_052.asc', 'aseg_053.asc', 'aseg_051.asc', 'aseg_049.asc',
+                            'aseg_043.asc', 'aseg_044.asc', 'aseg_060.asc', 'aseg_004.asc',
+                            'aseg_005.asc', 'aseg_010.asc', 'aseg_011.asc', 'aseg_012.asc',
+                            'aseg_013.asc', 'aseg_017.asc', 'aseg_018.asc', 'aseg_026.asc',
+                            'aseg_028.asc', 'aseg_014.asc', 'aseg_015.asc', 'aseg_016.asc']
+
+            nuc_list = ['rAcumb', 'rAmgd', 'rCaud', 'rGP', 'rHipp', 'rPut', 'rThal',
+                        'rLatVent', 'rInfLatVent', 'rVentDienceph', 'lLatVent', 'lInfLatVent',
+                        'lThal', 'lCaud', 'lPut',  'lGP', 'lHipp', 'lAmgd', 'lAcumb', 'lVentDienceph',
+                        'lThirdVent', 'lFourthVent', 'lBrainStem']
+
 
         subcort_dir = os.path.join(self.mesh_dir,'subcortical')     
         if not os.path.isdir(subcort_dir):      
@@ -945,7 +981,7 @@ class freeCoG:
 
         return vert_inds, nearest_verts
 
-    def label_elecs(self, elecfile_prefix='TDT_elecs_all', atlas_surf='desikan-killiany', atlas_depth='destrieux', elecs_all=True, include_subfields=False):
+    def label_elecs(self, elecfile_prefix='TDT_elecs_all', atlas_surf='desikan-killiany', atlas_depth='destrieux', elecs_all=True):
         ''' Automatically labels electrodes based on the freesurfer annotation file.
         Assumes TDT_elecs_all.mat or clinical_elecs_all.mat files
         Uses both the Desikan-Killiany Atlas and the Destrieux Atlas, as described 
@@ -1099,13 +1135,7 @@ class freeCoG:
             dat = nib.freesurfer.load(aseg_file)
             aparc_dat = dat.get_data()
              
-            aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'lh.hippoAmygLabels-T1.v21.FSvoxelSpace.mgz')
-            dat = nib.freesurfer.load(aseg_file)
-            aparc_datLH = dat.get_data()
-            
-            aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'rh.hippoAmygLabels-T1.v21.FSvoxelSpace.mgz')
-            dat = nib.freesurfer.load(aseg_file)
-            aparc_datRH = dat.get_data()
+  
              
 
             # Define the affine transform to go from surface coordinates to volume coordinates (as CRS, which is
@@ -1149,13 +1179,18 @@ class freeCoG:
             anatomySF = np.empty((nchans,), dtype=np.object)
             
 
-
-            # includeSF = False
-
-
-            if(include_subfields):
+            #If we are including subfields...
+            if(self.subfield_scan != 'None'):
 
                 print("Labeling electrodes including subfields...")
+
+                aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'lh.hippoAmygLabels-' + self.subfield_scan + '.v21.FSvoxelSpace.mgz')
+                dat = nib.freesurfer.load(aseg_file)
+                aparc_datLH = dat.get_data()
+            
+                aseg_file = os.path.join(self.subj_dir, self.subj, 'mri', 'rh.hippoAmygLabels-' + self.subfield_scan + '.v21.FSvoxelSpace.mgz')
+                dat = nib.freesurfer.load(aseg_file)
+                aparc_datRH = dat.get_data()
 
                 for elec in np.arange(nchans):
                     if(lab[aparc_datRH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]] != 'Unknown'):
@@ -1167,9 +1202,9 @@ class freeCoG:
                     print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
                                                                     aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
                                                                     anatomy[elec]))
-      
+            #If we are not including subfields
             else:
-            	print("Labeling electrodes without subfields...")
+                print("Labeling electrodes...")
                 for elec in np.arange(nchans):
                     anatomy[elec] = lab[aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
                     print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
@@ -1180,58 +1215,10 @@ class freeCoG:
 
             elec_labels[np.invert(isnotdepth),3] = anatomy
 
-            # print('Labeling electrodes using subfield parc...')
-
-            # for elec in np.arange(nchans):
-                # RHtemp =  lab[aparc_datRH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
-                # LHtemp = lab[aparc_datLH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
-                # if(RHtemp != 'Unknown'):
-                    # anatomySF[elec] = 'right-' + RHtemp
-                # elif(LHtemp != 'Unknown'):
-                    # anatomySF[elec] = 'left-' + LHtemp
-                # else:
-                    # anatomySF[elec] = 'Unknown'
-                # print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
-                                                                    # aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
-                                                                    # anatomySF[elec]))
-            # elec_labelsSF[np.invert(isnotdepth),3] = anatomy
-
-
-
-            # print("anatomy rhasdf:")
-            # print(aparc_datRH[100, 147, 119])
-            # print(aparc_datRH[1, 147, 119])
-
-            # print('Labeling electrodes using LH subfield parc...')
-# 
-            # for elec in np.arange(nchans):
-                # anatomyLH[elec] = 'left-' + lab[aparc_datLH[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]]]
-                # print("E%d, Vox CRS: [%d, %d, %d], Label #%d = %s"%(elec, VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2], 
-                                                                    # aparc_dat[VoxCRS[elec,0], VoxCRS[elec,1], VoxCRS[elec,2]], 
-                                                                    # anatomyLH[elec]))
-
-            #combine left and right subfields
-
-
-
-        # elec_lables_origSF = elec_labels_orig
 
             #make some corrections b/c of NaNs in elecmatrix
-        # print('b4')
-        # print(elec_labels_orig)
         elec_labels_orig[:,3] = ''
         elec_labels_orig[indices_to_use,3] = elec_labels[:,3] 
-        # print('after')
-        # print(elec_labels_orig)
-
-        # elec_labels_origSF[:,3] = ''
-        # elec_labels_origSF[indices_to_use,3] = elec_labels 
-
-
-        # elec_labels_orig[:,3] = ''
-        # elec_labels_orig[indices_to_use,3] = elec_labels[:,3] 
-
-
         
         print('Saving electrode labels to %s'%(elecfile_prefix))
         scipy.io.savemat(os.path.join(self.elecs_dir, elecfile_prefix+'.mat'), {'elecmatrix': elecmatrix_orig, 
@@ -1850,7 +1837,9 @@ class freeCoG:
             list of available regions of interest (ROIs) for plotting or making tri-vert meshes.
 
         '''
-        rois = ['rAcumb', 'rAmgd', 'rCaud', 'rGP', 'rHipp', 'rPut', 'rThal',
+        
+        if(self.subfield_scan == 'None'):
+            rois = ['rAcumb', 'rAmgd', 'rCaud', 'rGP', 'rHipp', 'rPut', 'rThal',
                     'rLatVent', 'rInfLatVent', 'rVentDienceph', 'lLatVent', 'lInfLatVent',
                     'lThal', 'lCaud', 'lPut',  'lGP', 'lHipp', 'lAmgd', 'lAcumb', 'lVentDienceph',
                     'lThirdVent', 'lFourthVent', 'lBrainStem', 'pial', 'lh_pial', 'rh_pial', 'bankssts',
@@ -1861,6 +1850,26 @@ class freeCoG:
                     'supramarginal', 'entorhinal', 'lateraloccipital', 'parsopercularis', 'precuneus',
                     'temporalpole', 'frontalpole', 'lateralorbitofrontal', 'parsorbitalis', 'rostralanteriorcingulate', 
                     'transversetemporal', 'fusiform', 'lingual', 'parstriangularis', 'rostralmiddlefrontal']
+        else:
+            rois = ['rAcumb', 'rAmgd', 'rCaud', 'rGP', 'rHipp', 'rPut', 'rThal',
+                    'rLatVent', 'rInfLatVent', 'rVentDienceph', 'lLatVent', 'lInfLatVent',
+                    'lThal', 'lCaud', 'lPut',  'lGP', 'lHipp', 'lAmgd', 'lAcumb', 'lVentDienceph',
+                    'lThirdVent', 'lFourthVent', 'lBrainStem', 'pial', 'lh_pial', 'rh_pial', 'bankssts',
+                    'inferiorparietal', 'medialorbitofrontal', 'pericalcarine', 'superiorfrontal',
+                    'caudalanteriorcingulate', 'inferiortemporal', 'middletemporal','postcentral', 
+                    'superiorparietal', 'caudalmiddlefrontal', 'insula', 'paracentral', 'posteriorcingulate',
+                    'superiortemporal', 'cuneus', 'isthmuscingulate', 'parahippocampal', 'precentral',
+                    'supramarginal', 'entorhinal', 'lateraloccipital', 'parsopercularis', 'precuneus',
+                    'temporalpole', 'frontalpole', 'lateralorbitofrontal', 'parsorbitalis', 'rostralanteriorcingulate', 
+                    'transversetemporal', 'fusiform', 'lingual', 'parstriangularis', 'rostralmiddlefrontal', 
+                    'lParasubiculum', 'lHATA', 'lFimbria','lHippocampalFissure', 'lHPtail', 'lPresubiculumHead', 'lPresubiculumBody', 
+                    'lSubiculumHead', 'lSubiculumBody', 'lCA1head', 'lCA1body', 'lCA3head', 'lCA3body',
+                    'lCA4head', 'lCA4body', 'lGcMlDgHead', 'lGcMlDgBody', 'lMolecularLayerHPhead', 
+                    'lMolecularLayerHPBody','rParasubiculum', 'rHATA', 'rFimbria',
+                    'rHippocampalFissure', 'rHPtail', 'rPresubiculumHead', 'rPresubiculumBody', 
+                    'rSubiculumHead', 'rSubiculumBody', 'rCA1head', 'rCA1body', 'rCA3head', 'rCA3body',
+                    'rCA4head', 'rCA4body', 'rGcMlDgHead', 'rGcMlDgBody', 'rMolecularLayerHPhead', 
+                    'rMolecularLayerHPBody']
         return rois
 
     def run_annotation2label(self):
