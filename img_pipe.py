@@ -120,7 +120,8 @@ class freeCoG:
 
     '''
 
-    def __init__(self, subj, hem, zero_indexed_electrodes=True, subfield_scan = 'None', fs_dir=os.environ['FREESURFER_HOME'], subj_dir=os.environ['SUBJECTS_DIR']):
+    def __init__(self, subj, hem, zero_indexed_electrodes=True, subfield_scan = 'None', recon_scan = 'None', fs_dir=os.environ['FREESURFER_HOME'], 
+    	subj_dir=os.environ['SUBJECTS_DIR']):
         '''
         Initializes the patient object.
 
@@ -149,6 +150,9 @@ class freeCoG:
 
         if not subfield_scan in ['None', 'T1', 'T2', 'T1-T2']:
             raise NameError('Invalid subfield_scan for freeCoG')
+
+        if not recon_scan in ['None', 'T2', 'FLAIR']:
+        	raise NameError('Invalid secondary recon-all scan for freeCoG')
         
         self.subj = subj
         self.subj_dir = subj_dir
@@ -156,8 +160,8 @@ class freeCoG:
         self.hem = hem
         self.img_pipe_dir = os.path.dirname(os.path.realpath(__file__))
         self.zero_indexed_electrodes = zero_indexed_electrodes
-
         self.subfield_scan = subfield_scan
+        self.recon_scan = recon_scan
 
         # Freesurfer home directory
         self.fs_dir = fs_dir
@@ -258,7 +262,16 @@ class freeCoG:
 
         '''       
         # os.system('recon-all -subjid %s -sd %s -all %s %s %s' % (self.subj, self.subj_dir, flag_T3, openmp_flag, gpu_flag))
-        os.system('recon-all -cw256 -subjid %s -sd %s -all %s %s %s' % (self.subj, self.subj_dir, flag_T3, openmp_flag, gpu_flag))
+        
+
+        #os.system('recon-all -cw256 -subjid %s -sd %s -all %s %s %s' % (self.subj, self.subj_dir, flag_T3, openmp_flag, gpu_flag))
+        if self.recon_scan == 'FLAIR':
+        	os.system('recon-all -cw256 -subjid %s -sd %s -FLAIR %s/T2.nii -FLAIRpial -all %s %s %s' % (self.subj, self.subj_dir, self.mri_dir, flag_T3, openmp_flag, gpu_flag))
+        elif self.recon_scan == 'T2':
+        	os.system('recon-all -cw256 -subjid %s -sd %s -T2 %s/T2.nii -T2pial -all %s %s %s' % (self.subj, self.subj_dir, self.mri_dir, flag_T3, openmp_flag, gpu_flag))
+    	else:
+        	os.system('recon-all -cw256 -subjid %s -sd %s -all %s %s %s' % (self.subj, self.subj_dir, flag_T3, openmp_flag, gpu_flag))
+
 
         self.pial_surf_file = dict()
         self.pial_surf_file['lh'] = os.path.join(self.subj_dir, self.subj, 'Meshes', 'lh_pial_trivert.mat')
@@ -1402,7 +1415,7 @@ class freeCoG:
         # Set the electrodes back to NaN where applicable
         elecmatrix[np.where(nan_elecs[:,0]),:] = np.nan
 
-         # This is for deleting the duplicate row that applyMorph produces for some reason
+        # This is for deleting the duplicate row that applyMorph produces for some reason
         if (elecmatrix[-1,:] == elecmatrix[-2,:]).all():
             elecmatrix = elecmatrix[:-1,:]
         nearest_warped_matfile = os.path.join(self.elecs_dir, elecfile_prefix+'_nearest_warped.mat')
