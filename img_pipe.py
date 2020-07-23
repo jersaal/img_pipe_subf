@@ -266,7 +266,7 @@ class freeCoG:
 
         #os.system('recon-all -cw256 -subjid %s -sd %s -all %s %s %s' % (self.subj, self.subj_dir, flag_T3, openmp_flag, gpu_flag))
         if self.recon_scan == 'FLAIR':
-        	os.system('recon-all -cw256 -subjid %s -sd %s -FLAIR %s/T2.nii -FLAIRpial -all %s %s %s' % (self.subj, self.subj_dir, self.mri_dir, flag_T3, openmp_flag, gpu_flag))
+        	os.system('recon-all -cw256 -subjid %s -sd %s -FLAIR %s/FLAIR.nii -FLAIRpial -all %s %s %s' % (self.subj, self.subj_dir, self.mri_dir, flag_T3, openmp_flag, gpu_flag))
         elif self.recon_scan == 'T2':
         	os.system('recon-all -cw256 -subjid %s -sd %s -T2 %s/T2.nii -T2pial -all %s %s %s' % (self.subj, self.subj_dir, self.mri_dir, flag_T3, openmp_flag, gpu_flag))
     	else:
@@ -517,6 +517,51 @@ class freeCoG:
                 elecmatrix[grid[row,:],i] = np.linspace(elecmatrix[row,i], elecmatrix[row+(grid[0,-1]-grid[0,0]),i], ncols)
 
         orig_file = os.path.join(self.elecs_dir, 'individual_elecs', '%s_orig.mat'%(grid_basename))
+        scipy.io.savemat(orig_file, {'elecmatrix': elecmatrix} )
+
+    def interp_stereo(self, ncontacts=8, grid_basename='hd_stereo'):
+        '''Interpolates corners for an electrode grid
+        given the four corners (in order, 1, 16, 241, 256), or for
+        32 channel grid, 1, 8, 25, 32.
+        
+        Parameters
+        ----------
+        nrows : int
+            Number of rows in the grid
+        ncols : int
+            Number of columns in the grid
+        grid_basename : str
+            The base name of the grid (e.g. 'hd_grid' if you have a corners file
+            called hd_grid_corners.mat)
+        
+        '''
+
+        ends_file = os.path.join(self.elecs_dir, 'individual_elecs', grid_basename+'_ends.mat')
+        ends = scipy.io.loadmat(ends_file)['elecmatrix']
+        elecmatrix = np.zeros((ncontacts, 3))
+
+        end_nums = [0, ncontacts-1]
+
+        # Add the electrode coordinates for the corners
+        for i in np.arange(2):
+            elecmatrix[end_nums[i],:] = ends[i,:]
+
+        # Interpolate over one dimension (vertical columns from corner 1 to 2 and corner 3 to 4)
+        # loop over x, y, and z coordinates
+        for i in np.arange(3):
+            elecmatrix[end_nums[0]:end_nums[1]+1,i] = np.linspace(elecmatrix[end_nums[0],i], elecmatrix[end_nums[1], i], ncontacts)
+
+
+            # elecmatrix[corner_nums[2]:corner_nums[3]+1,i] = np.linspace(elecmatrix[corner_nums[2],i], elecmatrix[corner_nums[3], i], nrows)
+
+        lead = np.arange(ncontacts)
+
+        # Now fill in the rows using the new data from the leftmost and rightmost columns
+        # for row in np.arange(ncontacts):
+        # for i in np.arange(3):
+        #     elecmatrix[lead,i] = np.linspace(elecmatrix[:,i], elecmatrix[(lead[-1]-lead[0]),i], ncols)
+
+        orig_file = os.path.join(self.elecs_dir, 'individual_elecs', '%s.mat'%(grid_basename))
         scipy.io.savemat(orig_file, {'elecmatrix': elecmatrix} )
 
     def project_electrodes(self, elecfile_prefix='hd_grid', use_mean_normal=True, \
